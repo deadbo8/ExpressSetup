@@ -18,6 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     psmisc \
     libatomic1 \
     libglib2.0-0 \
+    libnl-3-200 \
+    libnl-route-3-200 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the pre-downloaded ExpressVPN .run installer from the build context

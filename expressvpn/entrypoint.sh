@@ -121,7 +121,7 @@ if [ ! -x "$EVPN_DAEMON" ]; then
 fi
 
 log_info "Starting daemon: $EVPN_DAEMON"
-"$EVPN_DAEMON" &
+"$EVPN_DAEMON" > /tmp/daemon.log 2>&1 &
 DAEMON_PID=$!
 log_info "expressvpn-daemon started with PID: $DAEMON_PID"
 
@@ -140,6 +140,9 @@ done
 
 if [ $SECONDS_WAITED -ge $MAX_WAIT ]; then
     log_error "Daemon failed to become ready within ${MAX_WAIT}s."
+    log_error "=== Daemon output (last 20 lines) ==="
+    tail -20 /tmp/daemon.log 2>/dev/null || true
+    log_error "=== End daemon output ==="
     exit 1
 fi
 
