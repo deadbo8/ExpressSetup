@@ -79,11 +79,13 @@ apply_vpn_mode() {
     # NAT through VPN
     iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE
 
-    # Allow inbound connections to hosted services (AdGuard, WireGuard UI, WireGuard tunnel)
-    iptables -I INPUT -p tcp --dport 3000 -j ACCEPT   # AdGuard Home UI
-    iptables -I INPUT -p tcp --dport 51821 -j ACCEPT  # WireGuard Web UI
-    iptables -I INPUT -p udp --dport 51820 -j ACCEPT  # WireGuard VPN tunnel
-    iptables -I INPUT -p tcp --dport 8080 -j ACCEPT   # Telegram bot API
+    # Allow inbound connections to hosted services — insert at position 1 to be BEFORE evpn.INPUT
+    iptables -I INPUT 1 -p tcp --dport 3000 -j ACCEPT   # AdGuard Home UI
+    iptables -I INPUT 1 -p tcp --dport 51821 -j ACCEPT  # WireGuard Web UI
+    iptables -I INPUT 1 -p udp --dport 51820 -j ACCEPT  # WireGuard VPN tunnel
+    iptables -I INPUT 1 -p tcp --dport 8080 -j ACCEPT   # Telegram bot API
+    # Also allow established/related inbound traffic
+    iptables -I INPUT 1 -m state --state ESTABLISHED,RELATED -j ACCEPT
 
     # Fix routing asymmetry: ExpressVPN adds 0.0.0.0/1 and 128.0.0.0/1 routes via tun0
     # which causes response packets for inbound connections to be mis-routed through tun0.
@@ -110,11 +112,12 @@ apply_direct_mode() {
     # NAT through direct
     iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 
-    # Allow inbound connections to hosted services (AdGuard, WireGuard UI, WireGuard tunnel)
-    iptables -I INPUT -p tcp --dport 3000 -j ACCEPT   # AdGuard Home UI
-    iptables -I INPUT -p tcp --dport 51821 -j ACCEPT  # WireGuard Web UI
-    iptables -I INPUT -p udp --dport 51820 -j ACCEPT  # WireGuard VPN tunnel
-    iptables -I INPUT -p tcp --dport 8080 -j ACCEPT   # Telegram bot API
+    # Allow inbound connections to hosted services — insert at position 1 to be BEFORE evpn.INPUT
+    iptables -I INPUT 1 -p tcp --dport 3000 -j ACCEPT   # AdGuard Home UI
+    iptables -I INPUT 1 -p tcp --dport 51821 -j ACCEPT  # WireGuard Web UI
+    iptables -I INPUT 1 -p udp --dport 51820 -j ACCEPT  # WireGuard VPN tunnel
+    iptables -I INPUT 1 -p tcp --dport 8080 -j ACCEPT   # Telegram bot API
+    iptables -I INPUT 1 -m state --state ESTABLISHED,RELATED -j ACCEPT
 
     echo 'direct' > /tmp/current_mode
     log_success "Direct mode active — traffic routes through eth0 (no VPN)."
@@ -226,7 +229,11 @@ expressvpnctl background enable
 log_info "Background mode: enabled"
 
 # Disable network lock — we manage kill switch via iptables
-expressvpnctl set networklock false
+# Try different values; this command may fail but that's OK since we manage our own kill switch
+expressvpnctl set networklock off 2>/dev/null || \
+    expressvpnctl set networklock false 2>/dev/null || \
+    expressvpnctl set networklock 0 2>/dev/null || \
+    log_warn "Could not disable networklock — ExpressVPN's own firewall may be active"
 log_info "Network lock: off (managed via iptables)"
 
 # Set protocol
