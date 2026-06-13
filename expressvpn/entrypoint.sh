@@ -55,6 +55,12 @@ apply_vpn_mode() {
     # NAT through VPN
     iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE
 
+    # Allow inbound connections to hosted services (AdGuard, WireGuard UI, WireGuard tunnel)
+    iptables -I INPUT -p tcp --dport 3000 -j ACCEPT   # AdGuard Home UI
+    iptables -I INPUT -p tcp --dport 51821 -j ACCEPT  # WireGuard Web UI
+    iptables -I INPUT -p udp --dport 51820 -j ACCEPT  # WireGuard VPN tunnel
+    iptables -I INPUT -p tcp --dport 8080 -j ACCEPT   # Telegram bot API
+
     echo 'vpn' > /tmp/current_mode
     log_success "VPN mode active — traffic routes through tun0 (kill switch enforced)."
 }
@@ -73,6 +79,12 @@ apply_direct_mode() {
 
     # NAT through direct
     iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+    # Allow inbound connections to hosted services (AdGuard, WireGuard UI, WireGuard tunnel)
+    iptables -I INPUT -p tcp --dport 3000 -j ACCEPT   # AdGuard Home UI
+    iptables -I INPUT -p tcp --dport 51821 -j ACCEPT  # WireGuard Web UI
+    iptables -I INPUT -p udp --dport 51820 -j ACCEPT  # WireGuard VPN tunnel
+    iptables -I INPUT -p tcp --dport 8080 -j ACCEPT   # Telegram bot API
 
     echo 'direct' > /tmp/current_mode
     log_success "Direct mode active — traffic routes through eth0 (no VPN)."
