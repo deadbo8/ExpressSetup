@@ -40,6 +40,30 @@ TARGET_SERVER="${SERVER:-smart}"
 PROTOCOL="${PREFERRED_PROTOCOL:-lightway_udp}"
 INITIAL_MODE="${VPN_MODE:-vpn}"
 
+# -- Policy routing: fix eth0 response routing --------------------------------
+# ExpressVPN injects 0.0.0.0/1 and 128.0.0.0/1 routes via tun0, which means
+# ALL outbound traffic (including responses to inbound connections) goes through
+# the VPN. This breaks AdGuard/WireGuard UI access from outside.
+# Solution: route table 200 sends traffic from eth0's IP back via eth0.
+_fix_eth0_routing() {
+    ETH0_IP=$(ip addr show eth0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)
+    ETH0_GW=$(ip route | grep default | grep eth0 | awk '{print $3}' | head -1)
+    ETH0_NET=$(ip route | grep eth0 | grep -v default | grep -v via | head -1 | awk '{print $1}')
+
+    if [ -z "$ETH0_IP" ] || [ -z "$ETH0_GW" ]; then
+        log_warn "Could not determine eth0 IP or gateway — skipping policy routing fix"
+        return
+    fi
+
+    log_info "Policy routing: eth0 IP=$ETH0_IP GW=$ETH0_GW net=$ETH0_NET"
+    ip route flush table 200 2>/dev/null || true
+    [ -n "$ETH0_NET" ] && ip route add "$ETH0_NET" dev eth0 table 200 2>/dev/null || true
+    ip route add default via "$ETH0_GW" dev eth0 table 200 2>/dev/null || true
+    ip rule del from "$ETH0_IP" table 200 priority 100 2>/dev/null || true
+    ip rule add from "$ETH0_IP" table 200 priority 100
+    log_success "Policy routing configured — service responses will use eth0"
+}
+
 # -- iptables: VPN mode (fail-closed kill switch) -----------------------------
 apply_vpn_mode() {
     log_info "Applying VPN mode iptables rules (kill switch active)..."
@@ -61,8 +85,14 @@ apply_vpn_mode() {
     iptables -I INPUT -p udp --dport 51820 -j ACCEPT  # WireGuard VPN tunnel
     iptables -I INPUT -p tcp --dport 8080 -j ACCEPT   # Telegram bot API
 
+    # Fix routing asymmetry: ExpressVPN adds 0.0.0.0/1 and 128.0.0.0/1 routes via tun0
+    # which causes response packets for inbound connections to be mis-routed through tun0.
+    # Policy routing table 200 ensures responses to eth0-destined traffic go back via eth0.
+    _fix_eth0_routing
+
     echo 'vpn' > /tmp/current_mode
     log_success "VPN mode active — traffic routes through tun0 (kill switch enforced)."
+
 }
 
 # -- iptables: Direct mode (fail-closed kill switch) ---------------------------
