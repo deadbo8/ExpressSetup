@@ -7,8 +7,10 @@ services:
         EXPRESSVPN_VERSION: ${EXPRESSVPN_VERSION:-3.76.0.4-1}
     container_name: expressvpn
     restart: unless-stopped
+    privileged: true
     cap_add:
       - NET_ADMIN
+      - NET_RAW
     devices:
       - /dev/net/tun:/dev/net/tun
     ports:
@@ -28,11 +30,11 @@ services:
     volumes:
       - expressvpn_data:/var/lib/expressvpn
     healthcheck:
-      test: ["CMD-SHELL", "cat /tmp/current_mode 2>/dev/null && (expressvpn status 2>&1 | grep -qi Connected || cat /tmp/current_mode | grep -q direct)"]
+      test: ["CMD-SHELL", "cat /tmp/current_mode 2>/dev/null && (expressvpnctl status 2>&1 | grep -qi Connected || cat /tmp/current_mode | grep -q direct)"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s
+      start_period: 180s
     networks:
       - vpn_network
 
