@@ -120,8 +120,8 @@ if [ ! -x "$EVPN_DAEMON" ]; then
     exit 1
 fi
 
-log_info "Starting daemon: $EVPN_DAEMON"
-"$EVPN_DAEMON" > /tmp/daemon.log 2>&1 &
+log_info "Starting daemon: $EVPN_DAEMON run"
+"$EVPN_DAEMON" run > /tmp/daemon.log 2>&1 &
 DAEMON_PID=$!
 log_info "expressvpn-daemon started with PID: $DAEMON_PID"
 
