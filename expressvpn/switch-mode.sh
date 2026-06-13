@@ -106,17 +106,17 @@ if [ "$MODE" = "vpn" ]; then
     # Ensure ExpressVPN is connected before routing through it
     log_info "Ensuring ExpressVPN is connected..."
 
-    CURRENT_STATUS=$(expressvpn status 2>&1 || true)
+    CURRENT_STATUS=$(expressvpnctl status 2>&1 || true)
     if ! echo "$CURRENT_STATUS" | grep -qi "Connected"; then
         TARGET_SERVER="${SERVER:-smart}"
         log_info "Connecting to ExpressVPN server: ${TARGET_SERVER}..."
-        expressvpn connect "$TARGET_SERVER" 2>&1 || true
+        expressvpnctl connect "$TARGET_SERVER" 2>&1 || true
 
         # Wait for connection (max 30s)
         WAIT=0
         CONNECTED=false
         while [ $WAIT -lt 30 ]; do
-            if expressvpn status 2>&1 | grep -qi "Connected"; then
+            if expressvpnctl status 2>&1 | grep -qi "Connected"; then
                 CONNECTED=true
                 break
             fi
@@ -142,7 +142,7 @@ if [ "$MODE" = "vpn" ]; then
 elif [ "$MODE" = "direct" ]; then
     # Disconnect ExpressVPN to save resources (optional but recommended)
     log_info "Disconnecting ExpressVPN (not needed in direct mode)..."
-    expressvpn disconnect 2>/dev/null || true
+    expressvpnctl disconnect 2>/dev/null || true
     sleep 2
 
     apply_direct_mode
