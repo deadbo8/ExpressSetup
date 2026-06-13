@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExpressVPN Gateway</title>
+    <meta name="description" content="Self-hosted VPN Gateway Control Panel">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <!-- ======================== LOGIN SCREEN ======================== -->
+    <div id="login-screen" class="screen active">
+        <!-- Animated background particles -->
+        <div class="particles" aria-hidden="true">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+
+        <div class="login-card">
+            <div class="login-logo">
+                <span class="shield-icon">🛡️</span>
+                <h1>ExpressVPN Gateway</h1>
+                <p class="login-subtitle">Enter your access PIN</p>
+            </div>
+            <div class="pin-input-group">
+                <input type="password" id="pin-input" maxlength="10" placeholder="• • • • • •" autocomplete="off" aria-label="Access PIN">
+                <button id="login-btn" class="btn btn-primary">
+                    <span class="btn-text">Access Dashboard</span>
+                    <span class="btn-loader" hidden></span>
+                </button>
+            </div>
+            <p id="login-error" class="error-text" role="alert"></p>
+        </div>
+    </div>
+
+    <!-- ======================== DASHBOARD SCREEN ======================== -->
+    <div id="dashboard-screen" class="screen">
+
+        <!-- Header -->
+        <header class="dash-header">
+            <div class="header-left">
+                <span class="shield-icon-sm">🛡️</span>
+                <h2>Gateway Control</h2>
+            </div>
+            <div class="header-right">
+                <span id="mode-badge" class="badge badge-purple">VPN Mode</span>
+                <button id="logout-btn" class="btn btn-ghost">Logout</button>
+            </div>
+        </header>
+
+        <!-- Main content wrapper -->
+        <main class="dash-content">
+
+            <!-- Status Hero -->
+            <section class="status-hero" aria-label="VPN Connection Status">
+                <div class="status-card glass-card">
+                    <div class="status-indicator">
+                        <div id="status-dot" class="status-dot connected"></div>
+                        <span id="status-text" class="status-text">Connected</span>
+                    </div>
+                    <div class="status-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Server</span>
+                            <span id="server-name" class="detail-value">Loading...</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Public IP</span>
+                            <span id="public-ip" class="detail-value">Loading...</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Mode</span>
+                            <span id="current-mode" class="detail-value">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stats Grid -->
+            <section class="stats-grid" aria-label="Service Statistics">
+
+                <!-- AdGuard Card -->
+                <div class="glass-card adguard-card">
+                    <div class="card-header">
+                        <h3>🛡️ AdGuard DNS</h3>
+                        <label class="toggle-switch" aria-label="Toggle AdGuard DNS">
+                            <input type="checkbox" id="adguard-toggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="adguard-stats">
+                        <div class="stat-item">
+                            <span class="stat-number" id="queries-blocked">—</span>
+                            <span class="stat-label">Blocked Today</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="block-percentage">—%</span>
+                            <span class="stat-label">Block Rate</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="total-queries">—</span>
+                            <span class="stat-label">Total Queries</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Connection Info Card -->
+                <div class="glass-card info-card">
+                    <div class="card-header">
+                        <h3>📡 Connection</h3>
+                    </div>
+                    <div class="info-list">
+                        <div class="info-row">
+                            <span>Protocol</span>
+                            <span id="protocol-info">—</span>
+                        </div>
+                        <div class="info-row">
+                            <span>Uptime</span>
+                            <span id="uptime-info">—</span>
+                        </div>
+                        <div class="info-row">
+                            <span>DNS Server</span>
+                            <span id="dns-info">—</span>
+                        </div>
+                        <div class="info-row">
+                            <span>Gateway IP</span>
+                            <span id="gateway-ip-info">—</span>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </main>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container" aria-live="polite"></div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

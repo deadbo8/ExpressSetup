@@ -1,0 +1,147 @@
+services:
+  # ── Core VPN ────────────────────────────────────────────
+  expressvpn:
+    build:
+      context: ./expressvpn
+      args:
+        EXPRESSVPN_VERSION: ${EXPRESSVPN_VERSION:-3.76.0.4-1}
+    container_name: expressvpn
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "51820:51820/udp"     # WireGuard tunnel
+      - "51821:51821/tcp"     # wg-easy Web UI (access via WG tunnel after setup)
+      - "3000:3000/tcp"       # AdGuard Home Web UI (initial setup, close after)
+    environment:
+      - ACTIVATION_CODE=${ACTIVATION_CODE}
+      - SERVER=${EXPRESSVPN_SERVER:-smart}
+      - PREFERRED_PROTOCOL=${PREFERRED_PROTOCOL:-lightway_udp}
+      - VPN_MODE=${VPN_MODE:-vpn}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.disable_ipv6=1
+    volumes:
+      - expressvpn_data:/var/lib/expressvpn
+    healthcheck:
+      test: ["CMD-SHELL", "cat /tmp/current_mode 2>/dev/null && (expressvpn status 2>&1 | grep -qi Connected || cat /tmp/current_mode | grep -q direct)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - vpn_network
+
+  # ── WireGuard (wg-easy) ─────────────────────────────────
+  wireguard:
+    image: ghcr.io/wg-easy/wg-easy:latest
+    container_name: wireguard
+    network_mode: "service:expressvpn"
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - LANG=en
+      - WG_HOST=${SERVER_PUBLIC_IP}
+      - PASSWORD_HASH=${WG_PASSWORD_HASH}
+      - WG_PORT=51820
+      - WG_DEFAULT_DNS=10.8.0.1
+      - WG_ALLOWED_IPS=0.0.0.0/0,::/0
+      - WG_DEFAULT_ADDRESS=10.8.0.x
+      - WG_PERSISTENT_KEEPALIVE=25
+      - UI_TRAFFIC_STATS=true
+      - UI_CHART_TYPE=2
+    volumes:
+      - wireguard_data:/etc/wireguard
+    depends_on:
+      expressvpn:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # ── AdGuard Home (DNS Ad-Blocker) ──────────────────────
+  adguard:
+    image: adguard/adguardhome:latest
+    container_name: adguard
+    network_mode: "service:expressvpn"
+    volumes:
+      - adguard_work:/opt/adguardhome/work
+      - adguard_conf:/opt/adguardhome/conf
+    depends_on:
+      expressvpn:
+        condition: service_healthy
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # ── Telegram Bot + Dashboard API ────────────────────────
+  telegram-bot:
+    build: ./telegram-bot
+    container_name: telegram-bot
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ALLOWED_USER_IDS=${ALLOWED_USER_IDS}
+      - EXPRESSVPN_CONTAINER=expressvpn
+      - ADGUARD_URL=http://expressvpn:3000
+      - ADGUARD_USER=${ADGUARD_USER:-admin}
+      - ADGUARD_PASS=${ADGUARD_PASS:-admin}
+      - DASHBOARD_PIN=${DASHBOARD_PIN:-123456}
+      - API_PORT=8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - expressvpn
+    networks:
+      - vpn_network
+
+  # ── Caddy (HTTPS Reverse Proxy) ─────────────────────────
+  vpn-caddy:
+    image: caddy:2-alpine
+    container_name: vpn-caddy
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+      - "8443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./dashboard:/srv/dashboard:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - telegram-bot
+    networks:
+      - vpn_network
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # ── Watchtower (Auto-Updates) ───────────────────────────
+  watchtower:
+    image: containrrr/watchtower:1.7.1
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=86400
+      - WATCHTOWER_LABEL_ENABLE=true
+      - DOCKER_API_VERSION=1.44
+    command: --label-enable
+
+volumes:
+  expressvpn_data:
+  wireguard_data:
+  adguard_work:
+  adguard_conf:
+  caddy_data:
+  caddy_config:
+
+networks:
+  vpn_network:
+    driver: bridge

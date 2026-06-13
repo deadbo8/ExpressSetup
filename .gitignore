@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Data volumes
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Docker
+*.log
+
+# Caddy
+caddy/data/
+caddy/config/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

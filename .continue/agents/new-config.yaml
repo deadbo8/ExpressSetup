@@ -1,0 +1,14 @@
+name: "RTX-3050-Hybrid-Setup"
+version: "0.0.1"
+schema: "v1"
+
+models:
+  - name: "Qwen 3.5 9B (Chat & Reasoning)"
+    provider: "ollama"
+    model: "qwen3.5:9b"
+    contextLength: 8192
+
+tabAutocompleteModel:
+  name: "Qwen 3.5 4B (Fast Autocomplete)"
+  provider: "ollama"
+  model: "qwen3.5:4b"
