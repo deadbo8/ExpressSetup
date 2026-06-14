@@ -112,8 +112,10 @@ apply_direct_mode() {
     iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 
     # The gateway itself needs unrestricted INPUT/OUTPUT.
-    iptables -I INPUT 1 -j ACCEPT
-    iptables -I OUTPUT 1 -j ACCEPT
+    iptables -I evpn.INPUT 1 -j ACCEPT 2>/dev/null || true
+    iptables -I evpn.OUTPUT 1 -j ACCEPT 2>/dev/null || true
+    iptables -I INPUT 1 -j ACCEPT 2>/dev/null || true
+    iptables -I OUTPUT 1 -j ACCEPT 2>/dev/null || true
 
     echo 'direct' > /tmp/current_mode
     log_success "Direct mode active — traffic routes through eth0 (no VPN)."
@@ -308,6 +310,27 @@ echo -e "  ${CYAN}VPN Status:${NC} $VPN_STATUS"
 echo -e "  ${CYAN}Kill Switch:${NC} ${GREEN}ACTIVE${NC} (FORWARD policy DROP)"
 echo -e "${GREEN}${BOLD}══════════════════════════════════════════════════════════════${NC}"
 echo ""
+
+# =============================================================================
+# STEP 6.5: Watchdog (Continuously enforce firewall bypass)
+# =============================================================================
+# ExpressVPN periodically audits its firewall rules. If it detects tampering or if the
+# daemon reconnects, it flushes and recreates evpn.INPUT and evpn.OUTPUT.
+# This watchdog ensures our bypass rules are constantly re-injected if they go missing.
+enforce_firewall_loop() {
+    while true; do
+        if iptables -L evpn.INPUT -n 2>/dev/null | grep -q "evpn.INPUT"; then
+            iptables -C evpn.INPUT -j ACCEPT 2>/dev/null || iptables -I evpn.INPUT 1 -j ACCEPT 2>/dev/null || true
+        fi
+        if iptables -L evpn.OUTPUT -n 2>/dev/null | grep -q "evpn.OUTPUT"; then
+            iptables -C evpn.OUTPUT -j ACCEPT 2>/dev/null || iptables -I evpn.OUTPUT 1 -j ACCEPT 2>/dev/null || true
+        fi
+        sleep 10
+    done
+}
+
+# Start the watchdog in the background
+enforce_firewall_loop &
 
 # =============================================================================
 # STEP 7: Health monitoring loop
