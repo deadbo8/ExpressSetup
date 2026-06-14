@@ -150,13 +150,18 @@ async def preferences_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 # ── Callback Query Router ───────────────────────────────────────────────────
 
 
-async def _reply_new(query, text, reply_markup=None):
+async def _reply_new(query, text, **kwargs):
     """Remove keyboard from old message and send a new one."""
     try:
         await query.edit_message_reply_markup(reply_markup=None)
     except Exception:
         pass
-    return await query.message.reply_text(text, parse_mode="Markdown", reply_markup=reply_markup, quote=False)
+    
+    # Force Markdown parse_mode if not specified, though it usually is
+    if "parse_mode" not in kwargs:
+        kwargs["parse_mode"] = "Markdown"
+        
+    return await query.message.reply_text(text, quote=False, **kwargs)
 
 @restricted
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
