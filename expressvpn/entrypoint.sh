@@ -80,12 +80,9 @@ apply_vpn_mode() {
     iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE
 
     # Bypass ExpressVPN's Network Lock for local container traffic.
-    # ExpressVPN inserts its own evpn.INPUT and evpn.OUTPUT chains at the top of INPUT/OUTPUT.
-    # To prevent it from blocking our traffic, we neuter those chains by inserting ACCEPT at the top.
-    iptables -I evpn.INPUT 1 -j ACCEPT 2>/dev/null || true
-    iptables -I evpn.OUTPUT 1 -j ACCEPT 2>/dev/null || true
-
-    # Also insert at the top of the main chains as a fallback
+    # Our kill switch is implemented in the FORWARD chain (which handles client traffic).
+    # The gateway itself needs unrestricted INPUT/OUTPUT to allow the daemon to reconnect
+    # to the ExpressVPN API when the tunnel drops, and to allow hosted services to respond.
     iptables -I INPUT 1 -j ACCEPT
     iptables -I OUTPUT 1 -j ACCEPT
 
@@ -115,8 +112,6 @@ apply_direct_mode() {
     iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 
     # The gateway itself needs unrestricted INPUT/OUTPUT.
-    iptables -I evpn.INPUT 1 -j ACCEPT 2>/dev/null || true
-    iptables -I evpn.OUTPUT 1 -j ACCEPT 2>/dev/null || true
     iptables -I INPUT 1 -j ACCEPT
     iptables -I OUTPUT 1 -j ACCEPT
 
