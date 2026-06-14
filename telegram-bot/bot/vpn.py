@@ -28,8 +28,10 @@ async def _exec(args: list[str], timeout: float = 30) -> tuple[int, str, str]:
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         except asyncio.TimeoutError:
-            proc.kill()
-            await proc.communicate()
+            try:
+                proc.kill()
+            except Exception:
+                pass
             return 1, "", "Command timed out"
         return proc.returncode, stdout.decode().strip(), stderr.decode().strip()
 

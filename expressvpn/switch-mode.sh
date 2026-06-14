@@ -107,7 +107,9 @@ if [ "$MODE" = "vpn" ]; then
     log_info "Ensuring ExpressVPN is connected..."
 
     CURRENT_STATUS=$(expressvpnctl status 2>&1 || true)
-    if ! echo "$CURRENT_STATUS" | grep -qi "Connected"; then
+    if echo "$CURRENT_STATUS" | grep -qi "connected" && ! echo "$CURRENT_STATUS" | grep -qi "disconnected" && ! echo "$CURRENT_STATUS" | grep -qi "not connected"; then
+        log_info "ExpressVPN is already connected."
+    else
         TARGET_SERVER="${SERVER:-smart}"
         log_info "Connecting to ExpressVPN server: ${TARGET_SERVER}..."
         expressvpnctl connect "$TARGET_SERVER" 2>&1 || true
@@ -132,8 +134,6 @@ if [ "$MODE" = "vpn" ]; then
             exit 1
         fi
         log_success "ExpressVPN connected after ${WAIT}s."
-    else
-        log_info "ExpressVPN is already connected."
     fi
 
     apply_vpn_mode
