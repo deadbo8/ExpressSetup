@@ -230,10 +230,6 @@ log_info "Background mode: enabled"
 expressvpn preferences set network_lock off 2>/dev/null || true
 expressvpn preferences set force_vpn_dns false 2>/dev/null || true
 expressvpn preferences set block_trackers false 2>/dev/null || true
-
-# IMPORTANT: Enable local network access so ExpressVPN natively allows inbound/outbound
-# from the Docker bridge subnet, preventing the need for iptables hacks!
-expressvpn preferences set local_network true 2>/dev/null || true
 log_info "Network preferences configured."
 
 # Set protocol
@@ -312,6 +308,31 @@ echo -e "  ${CYAN}VPN Status:${NC} $VPN_STATUS"
 echo -e "  ${CYAN}Kill Switch:${NC} ${GREEN}ACTIVE${NC} (FORWARD policy DROP)"
 echo -e "${GREEN}${BOLD}══════════════════════════════════════════════════════════════${NC}"
 echo ""
+
+# =============================================================================
+# STEP 6.5: Firewall Hole-Punching (Bypass Network Lock for specific ports)
+# =============================================================================
+# ExpressVPN Network Lock blocks all inbound traffic. To allow WireGuard clients
+# and local AdGuard access, we must ensure our ACCEPT rules sit ABOVE evpn.INPUT.
+# ExpressVPN only monitors its own evpn.* chains, so inserting at INPUT 1 is safe.
+punch_hole_loop() {
+    while true; do
+        # Ensure UDP 51820 (WireGuard) is at the top of INPUT
+        if ! iptables -S INPUT | head -n 2 | grep -q "dport 51820 -j ACCEPT"; then
+            while iptables -D INPUT -p udp --dport 51820 -j ACCEPT 2>/dev/null; do :; done
+            iptables -I INPUT 1 -p udp --dport 51820 -j ACCEPT
+        fi
+        
+        # Ensure TCP 3000 (AdGuard Web UI) is right below WireGuard
+        if ! iptables -S INPUT | head -n 3 | grep -q "dport 3000 -j ACCEPT"; then
+            while iptables -D INPUT -p tcp --dport 3000 -j ACCEPT 2>/dev/null; do :; done
+            iptables -I INPUT 2 -p tcp --dport 3000 -j ACCEPT
+        fi
+        sleep 5
+    done
+}
+
+punch_hole_loop &
 
 # =============================================================================
 # STEP 7: Health monitoring loop
