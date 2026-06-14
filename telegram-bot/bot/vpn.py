@@ -10,6 +10,10 @@ logger = logging.getLogger(__name__)
 
 async def _exec(args: list[str], timeout: float = 30) -> tuple[int, str, str]:
     """Execute a command inside the ExpressVPN container."""
+    # Ensure absolute path is used to avoid PATH resolution issues via docker exec
+    if args and args[0] in ("expressvpn", "expressvpnctl"):
+        args[0] = "/opt/expressvpn/bin/expressvpnctl"
+
     cmd = ["docker", "exec", EXPRESSVPN_CONTAINER] + args
     logger.debug("Running: %s", " ".join(cmd))
     proc = await asyncio.create_subprocess_exec(
