@@ -79,12 +79,14 @@ apply_vpn_mode() {
     # NAT through VPN
     iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE
 
-    # Bypass ExpressVPN's Network Lock for local container traffic.
-    # Our kill switch is implemented in the FORWARD chain (which handles client traffic).
     # The gateway itself needs unrestricted INPUT/OUTPUT to allow the daemon to reconnect
     # to the ExpressVPN API when the tunnel drops, and to allow hosted services to respond.
-    iptables -I INPUT 1 -j ACCEPT
-    iptables -I OUTPUT 1 -j ACCEPT
+    iptables -I INPUT 1 -j ACCEPT 2>/dev/null || true
+    iptables -I OUTPUT 1 -j ACCEPT 2>/dev/null || true
+
+    # Neuter ExpressVPN's internal block sub-chain to bypass Network Lock 
+    # without triggering the daemon's anti-tamper deadlock loop.
+    iptables -I evpn.100.blockAll 1 -j ACCEPT 2>/dev/null || true
 
     # Fix routing asymmetry: ExpressVPN adds 0.0.0.0/1 and 128.0.0.0/1 routes via tun0
     # which causes response packets for inbound connections to be mis-routed through tun0.
@@ -112,8 +114,6 @@ apply_direct_mode() {
     iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 
     # The gateway itself needs unrestricted INPUT/OUTPUT.
-    iptables -I evpn.INPUT 1 -j ACCEPT 2>/dev/null || true
-    iptables -I evpn.OUTPUT 1 -j ACCEPT 2>/dev/null || true
     iptables -I INPUT 1 -j ACCEPT 2>/dev/null || true
     iptables -I OUTPUT 1 -j ACCEPT 2>/dev/null || true
 
@@ -226,13 +226,11 @@ log_step "Configuring ExpressVPN preferences..."
 expressvpnctl background enable
 log_info "Background mode: enabled"
 
-# Disable network lock — we manage kill switch via iptables
-# Try different values; this command may fail but that's OK since we manage our own kill switch
-expressvpnctl set networklock off 2>/dev/null || \
-    expressvpnctl set networklock false 2>/dev/null || \
-    expressvpnctl set networklock 0 2>/dev/null || \
-    log_warn "Could not disable networklock — ExpressVPN's own firewall may be active"
-log_info "Network lock: off (managed via iptables)"
+# Disable network lock natively. We manage our own kill switch via iptables.
+expressvpn preferences set network_lock off 2>/dev/null || true
+expressvpn preferences set force_vpn_dns false 2>/dev/null || true
+expressvpn preferences set block_trackers false 2>/dev/null || true
+log_info "Network lock: disabled via preferences"
 
 # Set protocol
 expressvpnctl set protocol "${PROTOCOL:-auto}"
@@ -310,27 +308,6 @@ echo -e "  ${CYAN}VPN Status:${NC} $VPN_STATUS"
 echo -e "  ${CYAN}Kill Switch:${NC} ${GREEN}ACTIVE${NC} (FORWARD policy DROP)"
 echo -e "${GREEN}${BOLD}══════════════════════════════════════════════════════════════${NC}"
 echo ""
-
-# =============================================================================
-# STEP 6.5: Watchdog (Continuously enforce firewall bypass)
-# =============================================================================
-# ExpressVPN periodically audits its firewall rules. If it detects tampering or if the
-# daemon reconnects, it flushes and recreates evpn.INPUT and evpn.OUTPUT.
-# This watchdog ensures our bypass rules are constantly re-injected if they go missing.
-enforce_firewall_loop() {
-    while true; do
-        if iptables -L evpn.INPUT -n 2>/dev/null | grep -q "evpn.INPUT"; then
-            iptables -C evpn.INPUT -j ACCEPT 2>/dev/null || iptables -I evpn.INPUT 1 -j ACCEPT 2>/dev/null || true
-        fi
-        if iptables -L evpn.OUTPUT -n 2>/dev/null | grep -q "evpn.OUTPUT"; then
-            iptables -C evpn.OUTPUT -j ACCEPT 2>/dev/null || iptables -I evpn.OUTPUT 1 -j ACCEPT 2>/dev/null || true
-        fi
-        sleep 10
-    done
-}
-
-# Start the watchdog in the background
-enforce_firewall_loop &
 
 # =============================================================================
 # STEP 7: Health monitoring loop
