@@ -1,11 +1,13 @@
 """ExpressVPN CLI wrapper — executes commands inside the Docker container."""
 
 import asyncio
-import json
 import logging
 from .config import EXPRESSVPN_CONTAINER
 
 logger = logging.getLogger(__name__)
+
+# Serialize all ExpressVPN CLI calls to prevent daemon IPC deadlocks
+_cli_lock = asyncio.Lock()
 
 
 async def _exec(args: list[str], timeout: float = 30) -> tuple[int, str, str]:
@@ -15,28 +17,32 @@ async def _exec(args: list[str], timeout: float = 30) -> tuple[int, str, str]:
         args[0] = "/opt/expressvpn/bin/expressvpnctl"
 
     cmd = ["docker", "exec", EXPRESSVPN_CONTAINER] + args
-    logger.debug("Running: %s", " ".join(cmd))
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    try:
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-    except asyncio.TimeoutError:
-        proc.kill()
-        await proc.communicate()
-        return 1, "", "Command timed out"
-    return proc.returncode, stdout.decode().strip(), stderr.decode().strip()
+    
+    async with _cli_lock:
+        logger.debug("Running: %s", " ".join(cmd))
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.communicate()
+            return 1, "", "Command timed out"
+        return proc.returncode, stdout.decode().strip(), stderr.decode().strip()
 
 
 # ── Status ───────────────────────────────────────────────────────────────────
 
 async def get_status() -> str:
-    """Return a human-readable VPN status with emoji."""
+    """Get the current ExpressVPN status."""
     try:
-        rc, out, err = await _exec(["expressvpn", "status"])
+        rc, out, err = await _exec(["expressvpn", "status"], timeout=5.0)
         if rc != 0:
+            if "Timed out" in err or "Timed out" in out:
+                return "⏳ *Daemon is busy (Connecting/Reconnecting).*\nPlease wait a moment and try again."
             logger.error("status failed (rc=%d): %s", rc, err)
             return f"❌ *Error getting status*\n`{err or out}`"
 
@@ -57,6 +63,12 @@ async def connect(location: str = "smart") -> str:
     try:
         rc, out, err = await _exec(["expressvpn", "connect", location])
         if rc != 0:
+            if "Timed out" in err or "Timed out" in out:
+                logger.warning("ExpressVPN CLI timed out waiting for connection. The daemon is likely still connecting in the background.")
+                await asyncio.sleep(4)
+                status = await get_status()
+                return f"⏳ *Connection processing in background...*\n\nCurrent status:\n{status}"
+                
             logger.error("connect(%s) failed (rc=%d): %s", location, rc, err)
             return f"❌ *Connection failed*\n`{err or out}`"
         return f"✅ *Connected to* `{location}`\n\n```\n{out}\n```"
