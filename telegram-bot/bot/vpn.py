@@ -12,11 +12,14 @@ _cli_lock = asyncio.Lock()
 
 async def _exec(args: list[str], timeout: float = 30) -> tuple[int, str, str]:
     """Execute a command inside the ExpressVPN container."""
-    # Ensure absolute path is used to avoid PATH resolution issues via docker exec
     if args and args[0] in ("expressvpn", "expressvpnctl"):
-        args[0] = "/opt/expressvpn/bin/expressvpnctl"
-
-    cmd = ["docker", "exec", EXPRESSVPN_CONTAINER] + args
+        # Headless images use expressvpnctl for core connection tasks, but lack other commands.
+        # Everything else goes to the main expressvpn CLI.
+        binary = "expressvpnctl" if len(args) > 1 and args[1] in ("connect", "disconnect", "status") else "expressvpn"
+        bash_cmd = f"{binary} " + " ".join(f"'{a}'" for a in args[1:])
+        cmd = ["docker", "exec", EXPRESSVPN_CONTAINER, "bash", "-c", bash_cmd]
+    else:
+        cmd = ["docker", "exec", EXPRESSVPN_CONTAINER] + args
     
     async with _cli_lock:
         logger.debug("Running: %s", " ".join(cmd))
