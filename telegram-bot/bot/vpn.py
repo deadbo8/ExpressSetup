@@ -13,13 +13,10 @@ _cli_lock = asyncio.Lock()
 async def _exec(args: list[str], timeout: float = 30) -> tuple[int, str, str]:
     """Execute a command inside the ExpressVPN container."""
     if args and args[0] in ("expressvpn", "expressvpnctl"):
-        # Headless images use expressvpnctl for core connection tasks, but lack other commands.
-        # Everything else goes to the main expressvpn CLI.
-        binary = "expressvpnctl" if len(args) > 1 and args[1] in ("connect", "disconnect", "status") else "expressvpn"
-        bash_cmd = f"{binary} " + " ".join(f"'{a}'" for a in args[1:])
-        cmd = ["docker", "exec", EXPRESSVPN_CONTAINER, "bash", "-c", bash_cmd]
-    else:
-        cmd = ["docker", "exec", EXPRESSVPN_CONTAINER] + args
+        # The headless ARM ExpressVPN image ONLY has expressvpnctl.
+        args[0] = "expressvpnctl"
+
+    cmd = ["docker", "exec", EXPRESSVPN_CONTAINER] + args
     
     async with _cli_lock:
         logger.debug("Running: %s", " ".join(cmd))
@@ -46,7 +43,7 @@ async def get_status() -> str:
     try:
         rc, out, err = await _exec(["expressvpn", "status"], timeout=5.0)
         if rc != 0:
-            if "Timed out" in err or "Timed out" in out:
+            if "timed out" in err.lower() or "timed out" in out.lower():
                 return "⏳ *Daemon is busy (Connecting/Reconnecting).*\nPlease wait a moment and try again."
             logger.error("status failed (rc=%d): %s", rc, err)
             return f"❌ *Error getting status*\n`{err or out}`"
@@ -68,7 +65,7 @@ async def connect(location: str = "smart") -> str:
     try:
         rc, out, err = await _exec(["expressvpn", "connect", location])
         if rc != 0:
-            if "Timed out" in err or "Timed out" in out:
+            if "timed out" in err.lower() or "timed out" in out.lower():
                 logger.warning("ExpressVPN CLI timed out waiting for connection. The daemon is likely still connecting in the background.")
                 await asyncio.sleep(4)
                 status = await get_status()
@@ -183,21 +180,13 @@ async def get_public_ip() -> str:
 
 async def get_protocol() -> str:
     """Return the current protocol setting."""
-    try:
-        rc, out, err = await _exec(["expressvpn", "protocol"])
-        if rc != 0:
-            logger.error("protocol get failed (rc=%d): %s", rc, err)
-            return f"❌ *Error getting protocol*\n`{err or out}`"
-        return f"⚡ *Protocol*\n\n```\n{out}\n```"
-    except Exception as exc:
-        logger.exception("get_protocol error")
-        return f"❌ *Error:* `{exc}`"
+    return "⚡ *Protocol*\n\n_Fetching protocol is not supported on headless ExpressVPN._"
 
 
 async def set_protocol(protocol: str) -> str:
     """Set the VPN protocol (e.g. lightway_udp, lightway_tcp, auto)."""
     try:
-        rc, out, err = await _exec(["expressvpn", "protocol", protocol])
+        rc, out, err = await _exec(["expressvpn", "set", "protocol", protocol])
         if rc != 0:
             logger.error("protocol set(%s) failed (rc=%d): %s", protocol, rc, err)
             return f"❌ *Failed to set protocol*\n`{err or out}`"
@@ -211,30 +200,14 @@ async def set_protocol(protocol: str) -> str:
 
 async def get_diagnostics() -> str:
     """Return expressvpn diagnostics output."""
-    try:
-        rc, out, err = await _exec(["expressvpn", "diagnostics"])
-        if rc != 0:
-            logger.error("diagnostics failed (rc=%d): %s", rc, err)
-            return f"❌ *Diagnostics error*\n`{err or out}`"
-        return f"🔧 *Diagnostics*\n\n```\n{out}\n```"
-    except Exception as exc:
-        logger.exception("get_diagnostics error")
-        return f"❌ *Error:* `{exc}`"
+    return "🔧 *Diagnostics*\n\n_Diagnostics are not supported on headless ExpressVPN._"
 
 
 # ── Preferences ──────────────────────────────────────────────────────────────
 
 async def get_preferences() -> str:
     """Return all ExpressVPN preferences."""
-    try:
-        rc, out, err = await _exec(["expressvpn", "preferences"])
-        if rc != 0:
-            logger.error("preferences failed (rc=%d): %s", rc, err)
-            return f"❌ *Error getting preferences*\n`{err or out}`"
-        return f"⚙️ *Preferences*\n\n```\n{out}\n```"
-    except Exception as exc:
-        logger.exception("get_preferences error")
-        return f"❌ *Error:* `{exc}`"
+    return "⚙️ *Preferences*\n\n_Preferences menu is not supported on headless ExpressVPN._"
 
 
 async def set_preference(key: str, value: str) -> str:
