@@ -52,19 +52,30 @@ def regions_menu() -> InlineKeyboardMarkup:
 def americas_servers() -> InlineKeyboardMarkup:
     """Popular Americas server locations."""
     buttons = [
-        _btn("🇺🇸 USA - New York", "connect:usny"),
-        _btn("🇺🇸 USA - Los Angeles", "connect:usla"),
-        _btn("🇺🇸 USA - Chicago", "connect:usch"),
-        _btn("🇺🇸 USA - Miami", "connect:usmi"),
-        _btn("🇺🇸 USA - Dallas", "connect:usda"),
-        _btn("🇺🇸 USA - San Francisco", "connect:ussf"),
-        _btn("🇺🇸 USA - Washington DC", "connect:uswd"),
-        _btn("🇺🇸 USA - Atlanta", "connect:usat"),
-        _btn("🇨🇦 Canada - Toronto", "connect:cato"),
-        _btn("🇨🇦 Canada - Montreal", "connect:camo"),
-        _btn("🇧🇷 Brazil", "connect:brsp"),
-        _btn("🇲🇽 Mexico", "connect:mxmc"),
+        _btn("🇺🇸 USA - New York", "connect:usa-new-york"),
+        _btn("🇺🇸 USA - Los Angeles", "connect:usa-los-angeles-1"),
+        _btn("🇺🇸 USA - Chicago", "connect:usa-chicago"),
+        _btn("🇺🇸 USA - Miami", "connect:usa-miami"),
+        _btn("🇺🇸 USA - Dallas", "connect:usa-dallas"),
+        _btn("🇺🇸 USA - San Francisco", "connect:usa-san-francisco"),
+        _btn("🇺🇸 USA - Washington DC", "connect:usa-washington-dc"),
+        _btn("🇺🇸 USA - Atlanta", "connect:usa-atlanta"),
+        _btn("🇨🇦 Canada - Toronto", "connect:canada-toronto"),
+        _btn("🇨🇦 Canada - Montreal", "connect:canada-montreal"),
+        _btn("🇧🇷 Brazil", "connect:brazil"),
+        _btn("🇲🇽 Mexico", "connect:mexico"),
+
+        _btn("🇦🇷 Argentina", "connect:argentina"),
+        _btn("🇨🇱 Chile", "connect:chile"),
+        _btn("🇨🇴 Colombia", "connect:colombia"),
+        _btn("🇵🇪 Peru", "connect:peru"),
+        _btn("🇪🇨 Ecuador", "connect:ecuador"),
+        _btn("🇻🇪 Venezuela", "connect:venezuela"),
+        _btn("🇺🇾 Uruguay", "connect:uruguay"),
+        _btn("🇵🇦 Panama", "connect:panama"),
+        _btn("🇨🇷 Costa Rica", "connect:costa-rica"),
     ]
+
     rows = _rows_of_two(buttons)
     rows.append([_btn("🔙 Back to Regions", "back:regions")])
     return InlineKeyboardMarkup(rows)
@@ -75,17 +86,33 @@ def americas_servers() -> InlineKeyboardMarkup:
 def europe_servers() -> InlineKeyboardMarkup:
     """Popular Europe server locations."""
     buttons = [
-        _btn("🇬🇧 UK - London", "connect:uklo"),
-        _btn("🇬🇧 UK - Docklands", "connect:ukdo"),
-        _btn("🇩🇪 Germany - Frankfurt", "connect:defr"),
-        _btn("🇫🇷 France - Paris", "connect:frpa"),
-        _btn("🇳🇱 Netherlands", "connect:nlam"),
-        _btn("🇨🇭 Switzerland", "connect:chzu"),
-        _btn("🇪🇸 Spain", "connect:esma"),
-        _btn("🇮🇹 Italy", "connect:itmi"),
-        _btn("🇸🇪 Sweden", "connect:sest"),
-        _btn("🇳🇴 Norway", "connect:noos"),
+        _btn("🇬🇧 UK - London", "connect:uk-london"),
+        _btn("🇬🇧 UK - Docklands", "connect:uk-docklands"),
+        _btn("🇩🇪 Germany - Frankfurt", "connect:germany-frankfurt-1"),
+        _btn("🇫🇷 France - Paris", "connect:france-paris-1"),
+        _btn("🇳🇱 Netherlands", "connect:netherlands-amsterdam"),
+        _btn("🇨🇭 Switzerland", "connect:switzerland"),
+        _btn("🇪🇸 Spain", "connect:spain-madrid"),
+        _btn("🇮🇹 Italy - Milan", "connect:italy-milan"),
+        _btn("🇸🇪 Sweden", "connect:sweden"),
+        _btn("🇳🇴 Norway", "connect:norway"),
+
+        _btn("🇷🇸 Serbia", "connect:serbia"),
+        _btn("🇺🇦 Ukraine", "connect:ukraine"),
+        _btn("🇷🇴 Romania", "connect:romania"),
+        _btn("🇵🇱 Poland", "connect:poland"),
+        _btn("🇨🇿 Czechia", "connect:czech-republic"),
+        _btn("🇭🇺 Hungary", "connect:hungary"),
+        _btn("🇬🇷 Greece", "connect:greece"),
+        _btn("🇵🇹 Portugal", "connect:portugal"),
+        _btn("🇮🇪 Ireland", "connect:ireland"),
+        _btn("🇫🇮 Finland", "connect:finland"),
+        _btn("🇩🇰 Denmark", "connect:denmark"),
+        _btn("🇦🇹 Austria", "connect:austria"),
+        _btn("🇧🇪 Belgium", "connect:belgium"),
+        _btn("🇹🇷 Turkey", "connect:turkey"),
     ]
+
     rows = _rows_of_two(buttons)
     rows.append([_btn("🔙 Back to Regions", "back:regions")])
     return InlineKeyboardMarkup(rows)
@@ -94,16 +121,43 @@ def europe_servers() -> InlineKeyboardMarkup:
 # ── Asia-Pacific Servers ─────────────────────────────────────────────────────
 
 def asia_pacific_servers() -> InlineKeyboardMarkup:
-    """Popular Asia-Pacific server locations."""
+    """Popular Asia-Pacific + Middle East + Africa server locations."""
     buttons = [
-        _btn("🇯🇵 Japan - Tokyo", "connect:jpto"),
-        _btn("🇸🇬 Singapore", "connect:sgju"),
-        _btn("🇦🇺 Australia - Sydney", "connect:ausy"),
-        _btn("🇮🇳 India - Mumbai", "connect:inmu"),
-        _btn("🇮🇳 India - Chennai", "connect:inch"),
-        _btn("🇭🇰 Hong Kong", "connect:hk2"),
-        _btn("🇰🇷 South Korea", "connect:krse"),
-        _btn("🇹🇭 Thailand", "connect:thba"),
+        _btn("🇯🇵 Japan - Tokyo", "connect:japan-tokyo"),
+        _btn("🇸🇬 Singapore", "connect:singapore-jurong"),
+        _btn("🇦🇺 Australia - Sydney", "connect:australia-sydney"),
+        _btn("🇮🇳 India (via SG)", "connect:india-(via-singapore)"),
+        _btn("🇮🇳 India (via UK)", "connect:india-(via-uk)"),
+        _btn("🇭🇰 Hong Kong", "connect:hong-kong-2"),
+        _btn("🇰🇷 South Korea", "connect:south-korea-2"),
+        _btn("🇹🇭 Thailand", "connect:thailand"),
+
+        _btn("🇳🇿 New Zealand", "connect:new-zealand"),
+        _btn("🇹🇼 Taiwan", "connect:taiwan-3"),
+        _btn("🇵🇭 Philippines", "connect:philippines"),
+        _btn("🇮🇩 Indonesia", "connect:indonesia"),
+        _btn("🇲🇾 Malaysia", "connect:malaysia"),
+        _btn("🇻🇳 Vietnam", "connect:vietnam"),
+        _btn("🇵🇰 Pakistan", "connect:pakistan"),
+        _btn("🇰🇿 Kazakhstan", "connect:kazakhstan"),
+        _btn("🇺🇿 Uzbekistan", "connect:uzbekistan"),
+        _btn("🇬🇪 Georgia", "connect:georgia"),
+        _btn("🇦🇲 Armenia", "connect:armenia"),
+        _btn("🇦🇿 Azerbaijan", "connect:azerbaijan"),
+        _btn("🇶🇦 Qatar", "connect:qatar"),
+        _btn("🇨🇾 Cyprus", "connect:cyprus"),
+        _btn("🇲🇹 Malta", "connect:malta"),
+
+        _btn("🇿🇦 South Africa", "connect:south-africa"),
+        _btn("🇰🇪 Kenya", "connect:kenya"),
+        _btn("🇳🇬 Nigeria", "connect:nigeria"),
+        _btn("🇬🇭 Ghana", "connect:ghana"),
+        _btn("🇲🇦 Morocco", "connect:morocco"),
+        _btn("🇩🇿 Algeria", "connect:algeria"),
+        _btn("🇪🇬 Egypt", "connect:egypt"),
+        _btn("🇦🇪 UAE", "connect:united-arab-emirates"),
+        _btn("🇸🇦 Saudi Arabia", "connect:saudi-arabia"),
+        _btn("🇮🇱 Israel", "connect:israel"),
     ]
     rows = _rows_of_two(buttons)
     rows.append([_btn("🔙 Back to Regions", "back:regions")])
