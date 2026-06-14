@@ -226,11 +226,15 @@ log_step "Configuring ExpressVPN preferences..."
 expressvpnctl background enable
 log_info "Background mode: enabled"
 
-# Disable network lock natively. We manage our own kill switch via iptables.
+# Disable network lock natively if possible.
 expressvpn preferences set network_lock off 2>/dev/null || true
 expressvpn preferences set force_vpn_dns false 2>/dev/null || true
 expressvpn preferences set block_trackers false 2>/dev/null || true
-log_info "Network lock: disabled via preferences"
+
+# IMPORTANT: Enable local network access so ExpressVPN natively allows inbound/outbound
+# from the Docker bridge subnet, preventing the need for iptables hacks!
+expressvpn preferences set local_network true 2>/dev/null || true
+log_info "Network preferences configured."
 
 # Set protocol
 expressvpnctl set protocol "${PROTOCOL:-auto}"
@@ -308,24 +312,6 @@ echo -e "  ${CYAN}VPN Status:${NC} $VPN_STATUS"
 echo -e "  ${CYAN}Kill Switch:${NC} ${GREEN}ACTIVE${NC} (FORWARD policy DROP)"
 echo -e "${GREEN}${BOLD}══════════════════════════════════════════════════════════════${NC}"
 echo ""
-
-# =============================================================================
-# STEP 6.5: Stealth Watchdog (Silently bypass Network Lock)
-# =============================================================================
-# We must constantly ensure evpn.100.blockAll accepts traffic, because every time
-# ExpressVPN connects/reconnects, it wipes and recreates the evpn.* chains.
-# By targeting this deep sub-chain instead of evpn.INPUT/OUTPUT, the daemon doesn't
-# detect the tampering, completely avoiding the infinite loop deadlocks!
-enforce_firewall_loop() {
-    while true; do
-        if iptables -L evpn.100.blockAll -n 2>/dev/null | grep -q "evpn.100.blockAll"; then
-            iptables -C evpn.100.blockAll -j ACCEPT 2>/dev/null || iptables -I evpn.100.blockAll 1 -j ACCEPT 2>/dev/null || true
-        fi
-        sleep 10
-    done
-}
-
-enforce_firewall_loop &
 
 # =============================================================================
 # STEP 7: Health monitoring loop
