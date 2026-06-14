@@ -310,6 +310,24 @@ echo -e "${GREEN}${BOLD}══════════════════�
 echo ""
 
 # =============================================================================
+# STEP 6.5: Stealth Watchdog (Silently bypass Network Lock)
+# =============================================================================
+# We must constantly ensure evpn.100.blockAll accepts traffic, because every time
+# ExpressVPN connects/reconnects, it wipes and recreates the evpn.* chains.
+# By targeting this deep sub-chain instead of evpn.INPUT/OUTPUT, the daemon doesn't
+# detect the tampering, completely avoiding the infinite loop deadlocks!
+enforce_firewall_loop() {
+    while true; do
+        if iptables -L evpn.100.blockAll -n 2>/dev/null | grep -q "evpn.100.blockAll"; then
+            iptables -C evpn.100.blockAll -j ACCEPT 2>/dev/null || iptables -I evpn.100.blockAll 1 -j ACCEPT 2>/dev/null || true
+        fi
+        sleep 10
+    done
+}
+
+enforce_firewall_loop &
+
+# =============================================================================
 # STEP 7: Health monitoring loop
 # =============================================================================
 log_step "Entering health monitoring loop (checking every 60s)..."

@@ -12,7 +12,7 @@ async def _exec(args: list[str], timeout: float = 30) -> tuple[int, str, str]:
     """Execute a command inside the ExpressVPN container."""
     # Ensure absolute path is used to avoid PATH resolution issues via docker exec
     if args and args[0] in ("expressvpn", "expressvpnctl"):
-        args[0] = "/opt/expressvpn/bin/expressvpnctl"
+        args[0] = "/opt/expressvpn/bin/expressvpn"
 
     cmd = ["docker", "exec", EXPRESSVPN_CONTAINER] + args
     logger.debug("Running: %s", " ".join(cmd))
@@ -41,7 +41,7 @@ async def get_status() -> str:
             return f"❌ *Error getting status*\n`{err or out}`"
 
         lower = out.lower()
-        if "connected" in lower and "not connected" not in lower:
+        if "connected" in lower and "not connected" not in lower and "disconnected" not in lower:
             return f"🟢 *Connected*\n\n```\n{out}\n```"
         else:
             return f"🔴 *Disconnected*\n\n```\n{out}\n```"
