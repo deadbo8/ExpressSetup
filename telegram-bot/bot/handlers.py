@@ -149,6 +149,15 @@ async def preferences_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 # ── Callback Query Router ───────────────────────────────────────────────────
 
+
+async def _reply_new(query, text, reply_markup=None):
+    """Remove keyboard from old message and send a new one."""
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+    return await query.message.reply_text(text, parse_mode="Markdown", reply_markup=reply_markup, quote=False)
+
 @restricted
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Route all inline-keyboard button presses."""
@@ -164,62 +173,62 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         mode = await vpn.get_current_mode()
         mode_emoji = "🔒 VPN" if mode == "vpn" else "⚡ Direct" if mode == "direct" else "❓ Unknown"
         text = f"{status}\n\n{ip_info}\n🔀 *Mode:* {mode_emoji}"
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu())
+        await _reply_new(query, text, parse_mode="Markdown", reply_markup=main_menu())
 
     elif data == "action:ip":
         ip_info = await vpn.get_public_ip()
-        await query.edit_message_text(ip_info, parse_mode="Markdown", reply_markup=main_menu())
+        await _reply_new(query, ip_info, parse_mode="Markdown", reply_markup=main_menu())
 
     elif data == "action:connect":
-        await query.edit_message_text(
+        await _reply_new(query, 
             "🗺 *Select a Region*", parse_mode="Markdown", reply_markup=regions_menu()
         )
 
     elif data == "action:disconnect":
-        await query.edit_message_text(
+        await _reply_new(query, 
             "⚠️ *Are you sure you want to disconnect?*",
             parse_mode="Markdown",
             reply_markup=confirm_disconnect(),
         )
 
     elif data == "action:reconnect":
-        await query.edit_message_text("⏳ *Reconnecting…*", parse_mode="Markdown")
+        msg = await _reply_new(query, "⏳ *Reconnecting…*", parse_mode="Markdown")
         result = await vpn.reconnect()
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=main_menu())
+        await msg.edit_text( result, parse_mode="Markdown", reply_markup=main_menu())
 
     elif data == "action:protocol":
         proto = await vpn.get_protocol()
         text = f"{proto}\n\n🔧 *Select a protocol:*"
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=protocol_menu())
+        await _reply_new(query, text, parse_mode="Markdown", reply_markup=protocol_menu())
 
     elif data == "action:servers":
-        await query.edit_message_text(
+        await _reply_new(query, 
             "🗺 *Select a Region*", parse_mode="Markdown", reply_markup=regions_menu()
         )
 
     elif data == "action:diagnostics":
-        await query.edit_message_text("⏳ *Running diagnostics…*", parse_mode="Markdown")
+        msg = await _reply_new(query, "⏳ *Running diagnostics…*", parse_mode="Markdown")
         result = await vpn.get_diagnostics()
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=main_menu())
+        await msg.edit_text( result, parse_mode="Markdown", reply_markup=main_menu())
 
     # ── regions ──────────────────────────────────────────────────────────
     elif data == "region:americas":
-        await query.edit_message_text(
+        await _reply_new(query, 
             "🌎 *Americas Servers*", parse_mode="Markdown", reply_markup=americas_servers()
         )
 
     elif data == "region:europe":
-        await query.edit_message_text(
+        await _reply_new(query, 
             "🌍 *Europe Servers*", parse_mode="Markdown", reply_markup=europe_servers()
         )
 
     elif data == "region:asia_pacific":
-        await query.edit_message_text(
+        await _reply_new(query, 
             "🌏 *Asia Pacific Servers*", parse_mode="Markdown", reply_markup=asia_pacific_servers()
         )
 
     elif data == "region:back":
-        await query.edit_message_text(
+        await _reply_new(query, 
             "🛡️ *ExpressVPN Control Panel*\n\nChoose an action:",
             parse_mode="Markdown",
             reply_markup=main_menu(),
@@ -228,29 +237,29 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     # ── connect to specific server ───────────────────────────────────────
     elif data.startswith("connect:"):
         alias = data.split(":", 1)[1]
-        await query.edit_message_text(
+        msg = await _reply_new(query, 
             f"⏳ *Connecting to* `{alias}`*…*", parse_mode="Markdown"
         )
         result = await vpn.connect(alias)
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=main_menu())
+        await msg.edit_text(result, parse_mode="Markdown", reply_markup=main_menu())
 
     # ── protocol selection ───────────────────────────────────────────────
     elif data.startswith("protocol:"):
         proto = data.split(":", 1)[1]
-        await query.edit_message_text(
+        msg = await _reply_new(query, 
             f"⏳ *Setting protocol to* `{proto}`*…*", parse_mode="Markdown"
         )
         result = await vpn.set_protocol(proto)
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=main_menu())
+        await msg.edit_text(result, parse_mode="Markdown", reply_markup=main_menu())
 
     # ── disconnect confirmation ──────────────────────────────────────────
     elif data == "confirm_disconnect:yes":
-        await query.edit_message_text("⏳ *Disconnecting…*", parse_mode="Markdown")
+        msg = await _reply_new(query, "⏳ *Disconnecting…*", parse_mode="Markdown")
         result = await vpn.disconnect()
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=main_menu())
+        await msg.edit_text( result, parse_mode="Markdown", reply_markup=main_menu())
 
     elif data == "confirm_disconnect:no":
-        await query.edit_message_text(
+        await _reply_new(query, 
             "🛡️ *ExpressVPN Control Panel*\n\nChoose an action:",
             parse_mode="Markdown",
             reply_markup=main_menu(),
@@ -259,7 +268,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     # ── AdGuard controls ────────────────────────────────────────────────
     elif data == "action:adguard":
         status = await adguard.get_status()
-        await query.edit_message_text(status, parse_mode="Markdown", reply_markup=adguard_menu())
+        await _reply_new(query, status, parse_mode="Markdown", reply_markup=adguard_menu())
 
     elif data == "adguard:toggle":
         status_data = await adguard.get_status_raw()
@@ -267,15 +276,15 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         result = await adguard.toggle_protection(not current)
         new_status = await adguard.get_status()
         text = f"{result}\n\n{new_status}"
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=adguard_menu())
+        await _reply_new(query, text, parse_mode="Markdown", reply_markup=adguard_menu())
 
     elif data == "adguard:stats":
         stats = await adguard.get_stats()
-        await query.edit_message_text(stats, parse_mode="Markdown", reply_markup=adguard_menu())
+        await _reply_new(query, stats, parse_mode="Markdown", reply_markup=adguard_menu())
 
     elif data == "adguard:querylog":
         log = await adguard.get_query_log()
-        await query.edit_message_text(log, parse_mode="Markdown", reply_markup=adguard_menu())
+        await _reply_new(query, log, parse_mode="Markdown", reply_markup=adguard_menu())
 
     elif data == "adguard:safebrowsing":
         # Toggle: check current state first
@@ -283,11 +292,11 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         # AdGuard doesn't return safe_browsing in status; just toggle on
         # We'll use a simple toggle approach
         result = await adguard.toggle_safe_browsing(True)
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=adguard_menu())
+        await _reply_new(query, result, parse_mode="Markdown", reply_markup=adguard_menu())
 
     elif data == "adguard:parental":
         result = await adguard.toggle_parental(True)
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=adguard_menu())
+        await _reply_new(query, result, parse_mode="Markdown", reply_markup=adguard_menu())
 
     elif data == "adguard:services":
         blocked = await adguard.get_blocked_services()
@@ -296,7 +305,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             text = f"🚫 *Currently blocked:*\n{svc_list}\n\n_Tap a service to toggle it:_"
         else:
             text = "✅ *No services blocked*\n\n_Tap a service to block it:_"
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=blocked_services_menu())
+        await _reply_new(query, text, parse_mode="Markdown", reply_markup=blocked_services_menu())
 
     # ── Service blocking ────────────────────────────────────────────────
     elif data.startswith("service:"):
@@ -315,36 +324,36 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             text = f"{action_text}\n\n🚫 *Currently blocked:*\n{svc_list}"
         else:
             text = f"{action_text}\n\n✅ *No services blocked*"
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=blocked_services_menu())
+        await _reply_new(query, text, parse_mode="Markdown", reply_markup=blocked_services_menu())
 
     # ── Mode switch ─────────────────────────────────────────────────────
     elif data == "action:mode":
         mode = await vpn.get_current_mode()
         mode_emoji = "🔒 Full VPN" if mode == "vpn" else "⚡ Direct + AdGuard" if mode == "direct" else "❓ Unknown"
         text = f"🔀 *Current Mode:* {mode_emoji}\n\nSelect a mode:"
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=mode_menu())
+        await _reply_new(query, text, parse_mode="Markdown", reply_markup=mode_menu())
 
     elif data.startswith("mode:"):
         mode = data.split(":", 1)[1]
-        await query.edit_message_text(
+        msg = await _reply_new(query, 
             f"⏳ *Switching to* `{mode}` *mode…*", parse_mode="Markdown"
         )
         result = await vpn.switch_mode(mode)
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=main_menu())
+        await msg.edit_text(result, parse_mode="Markdown", reply_markup=main_menu())
 
     # ── Preferences ─────────────────────────────────────────────────────
     elif data == "action:preferences":
         prefs = await vpn.get_preferences()
-        await query.edit_message_text(prefs, parse_mode="Markdown", reply_markup=preferences_menu())
+        await _reply_new(query, prefs, parse_mode="Markdown", reply_markup=preferences_menu())
 
     elif data == "pref:protocol":
         proto = await vpn.get_protocol()
         text = f"{proto}\n\n🔧 *Select a protocol:*"
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=protocol_menu())
+        await _reply_new(query, text, parse_mode="Markdown", reply_markup=protocol_menu())
 
     elif data == "pref:cipher":
         text = "🔐 *Select Lightway cipher:*"
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=cipher_menu())
+        await _reply_new(query, text, parse_mode="Markdown", reply_markup=cipher_menu())
 
     elif data == "pref:autoconnect":
         # Toggle autoconnect
@@ -352,34 +361,34 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         # Determine current state from the output
         is_enabled = "true" in current.lower()
         result = await vpn.set_autoconnect(not is_enabled)
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=preferences_menu())
+        await _reply_new(query, result, parse_mode="Markdown", reply_markup=preferences_menu())
 
     elif data == "pref:refresh":
-        await query.edit_message_text("⏳ *Refreshing server list…*", parse_mode="Markdown")
+        msg = await _reply_new(query, "⏳ *Refreshing server list…*", parse_mode="Markdown")
         result = await vpn.refresh_servers()
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=preferences_menu())
+        await msg.edit_text( result, parse_mode="Markdown", reply_markup=preferences_menu())
 
     elif data == "pref:view":
         prefs = await vpn.get_preferences()
-        await query.edit_message_text(prefs, parse_mode="Markdown", reply_markup=preferences_menu())
+        await _reply_new(query, prefs, parse_mode="Markdown", reply_markup=preferences_menu())
 
     # ── Cipher selection ────────────────────────────────────────────────
     elif data.startswith("cipher:"):
         cipher = data.split(":", 1)[1]
-        await query.edit_message_text(
+        msg = await _reply_new(query, 
             f"⏳ *Setting cipher to* `{cipher}`*…*", parse_mode="Markdown"
         )
         result = await vpn.set_cipher(cipher)
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=preferences_menu())
+        await msg.edit_text(result, parse_mode="Markdown", reply_markup=preferences_menu())
 
     # ── Speed test ──────────────────────────────────────────────────────
     elif data == "action:speed":
-        await query.edit_message_text(
+        msg = await _reply_new(query, 
             "⏳ *Running speed test…*\n\nThis may take 30-60 seconds.",
             parse_mode="Markdown",
         )
         result = await vpn.speed_test()
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=main_menu())
+        await msg.edit_text(result, parse_mode="Markdown", reply_markup=main_menu())
 
     # ── Logout ──────────────────────────────────────────────────────────
     elif data == "action:logout":
@@ -389,15 +398,15 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             "You will need an activation code to re-activate.\n\n"
             "Are you sure?"
         )
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=confirm_logout())
+        await _reply_new(query, text, parse_mode="Markdown", reply_markup=confirm_logout())
 
     elif data == "logout:yes":
-        await query.edit_message_text("⏳ *Logging out…*", parse_mode="Markdown")
+        msg = await _reply_new(query, "⏳ *Logging out…*", parse_mode="Markdown")
         result = await vpn.logout()
-        await query.edit_message_text(result, parse_mode="Markdown", reply_markup=main_menu())
+        await msg.edit_text( result, parse_mode="Markdown", reply_markup=main_menu())
 
     elif data == "logout:no":
-        await query.edit_message_text(
+        await _reply_new(query, 
             "🛡️ *ExpressVPN Control Panel*\n\nChoose an action:",
             parse_mode="Markdown",
             reply_markup=main_menu(),
@@ -405,28 +414,28 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     # ── back navigation ──────────────────────────────────────────────────
     elif data == "back:menu":
-        await query.edit_message_text(
+        await _reply_new(query, 
             "🛡️ *ExpressVPN Control Panel*\n\nChoose an action:",
             parse_mode="Markdown",
             reply_markup=main_menu(),
         )
 
     elif data == "back:regions":
-        await query.edit_message_text(
+        await _reply_new(query, 
             "🗺 *Select a Region*", parse_mode="Markdown", reply_markup=regions_menu()
         )
 
     elif data == "back:adguard":
         status = await adguard.get_status()
-        await query.edit_message_text(status, parse_mode="Markdown", reply_markup=adguard_menu())
+        await _reply_new(query, status, parse_mode="Markdown", reply_markup=adguard_menu())
 
     elif data == "back:preferences":
         prefs = await vpn.get_preferences()
-        await query.edit_message_text(prefs, parse_mode="Markdown", reply_markup=preferences_menu())
+        await _reply_new(query, prefs, parse_mode="Markdown", reply_markup=preferences_menu())
 
     else:
         logger.warning("Unhandled callback data: %s", data)
-        await query.edit_message_text(
+        await _reply_new(query, 
             "❓ Unknown action.", parse_mode="Markdown", reply_markup=main_menu()
         )
 
