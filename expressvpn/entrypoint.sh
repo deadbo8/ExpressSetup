@@ -312,16 +312,20 @@ maintain_bypasses_loop() {
         
         # Only inject if the daemon is fully idle and connected.
         # Modifying iptables while it says "Connecting..." triggers the anti-tamper deadlock.
-        if ! expressvpn status 2>/dev/null | grep -qi "Connected to"; then
+        if ! expressvpnctl status 2>/dev/null | grep -qi "Connected to"; then
             continue
         fi
 
-        if ! iptables -S INPUT | head -n 1 | grep -q "^-A INPUT -j ACCEPT"; then
+        # iptables -S outputs the policy as the first line (e.g. -P INPUT ACCEPT)
+        # So the first actual rule is on line 2.
+        INPUT_RULE_1=$(iptables -S INPUT 2>/dev/null | sed -n '2p')
+        if [ "$INPUT_RULE_1" != "-A INPUT -j ACCEPT" ]; then
             while iptables -D INPUT -j ACCEPT 2>/dev/null; do :; done
             iptables -I INPUT 1 -j ACCEPT
         fi
 
-        if ! iptables -S OUTPUT | head -n 1 | grep -q "^-A OUTPUT -j ACCEPT"; then
+        OUTPUT_RULE_1=$(iptables -S OUTPUT 2>/dev/null | sed -n '2p')
+        if [ "$OUTPUT_RULE_1" != "-A OUTPUT -j ACCEPT" ]; then
             while iptables -D OUTPUT -j ACCEPT 2>/dev/null; do :; done
             iptables -I OUTPUT 1 -j ACCEPT
         fi
