@@ -69,12 +69,22 @@ apply_vpn_mode() {
     iptables -t nat -F POSTROUTING
     iptables -P FORWARD DROP  # Kill switch: block everything by default
 
+    # Detect active VPN interface
+    VPN_IF=$(ip route | grep -E '0.0.0.0/1|128.0.0.0/1' | awk '{print $5}' | head -n 1)
+    if [ -z "$VPN_IF" ]; then
+        VPN_IF=$(ip link show | grep -oE '(tun[0-9]+|lightway[0-9]+)' | head -n 1)
+    fi
+    if [ -z "$VPN_IF" ]; then
+        VPN_IF="tun0"
+    fi
+    log_info "Detected VPN interface: $VPN_IF"
+
     # Allow WireGuard → VPN tunnel
-    iptables -A FORWARD -i wg0 -o tun0 -j ACCEPT
-    iptables -A FORWARD -i tun0 -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+    iptables -A FORWARD -i wg0 -o "$VPN_IF" -j ACCEPT
+    iptables -A FORWARD -i "$VPN_IF" -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT
 
     # NAT through VPN
-    iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE
+    iptables -t nat -A POSTROUTING -o "$VPN_IF" -j MASQUERADE
 
     echo 'vpn' > /tmp/current_mode
     log_success "VPN mode iptables rules applied."
@@ -118,7 +128,7 @@ if [ "$MODE" = "vpn" ]; then
         WAIT=0
         CONNECTED=false
         while [ $WAIT -lt 30 ]; do
-            if expressvpnctl status 2>&1 | grep -qi "Connected"; then
+            if expressvpnctl status 2>&1 | grep -qi "Connected to"; then
                 CONNECTED=true
                 break
             fi
@@ -137,7 +147,7 @@ if [ "$MODE" = "vpn" ]; then
     fi
 
     apply_vpn_mode
-    send_telegram "🔒 *Mode Switched to VPN* — Traffic now routed through VPN tunnel (tun0)"
+    send_telegram "🔒 *Mode Switched to VPN* — Traffic now routed through VPN tunnel ($VPN_IF)"
 
 elif [ "$MODE" = "direct" ]; then
     # Disconnect ExpressVPN to save resources (optional but recommended)

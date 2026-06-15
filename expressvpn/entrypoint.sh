@@ -72,12 +72,22 @@ apply_vpn_mode() {
     iptables -t nat -F POSTROUTING
     iptables -P FORWARD DROP  # Default: block everything (kill switch)
 
+    # Detect active VPN interface
+    VPN_IF=$(ip route | grep -E '0.0.0.0/1|128.0.0.0/1' | awk '{print $5}' | head -n 1)
+    if [ -z "$VPN_IF" ]; then
+        VPN_IF=$(ip link show | grep -oE '(tun[0-9]+|lightway[0-9]+)' | head -n 1)
+    fi
+    if [ -z "$VPN_IF" ]; then
+        VPN_IF="tun0"
+    fi
+    log_info "Detected VPN interface: $VPN_IF"
+
     # Allow WireGuard → VPN tunnel
-    iptables -A FORWARD -i wg0 -o tun0 -j ACCEPT
-    iptables -A FORWARD -i tun0 -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+    iptables -A FORWARD -i wg0 -o "$VPN_IF" -j ACCEPT
+    iptables -A FORWARD -i "$VPN_IF" -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT
 
     # NAT through VPN
-    iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE
+    iptables -t nat -A POSTROUTING -o "$VPN_IF" -j MASQUERADE
 
     # Fix routing asymmetry: ExpressVPN adds 0.0.0.0/1 and 128.0.0.0/1 routes via tun0
     # which causes response packets for inbound connections to be mis-routed through tun0.
@@ -253,7 +263,7 @@ else
     CONNECTED=false
     while [ $SECONDS_WAITED -lt $MAX_WAIT ]; do
         STATUS=$(expressvpnctl status 2>&1 || true)
-        if echo "$STATUS" | grep -qi "Connected"; then
+        if echo "$STATUS" | grep -qi "Connected to"; then
             CONNECTED=true
             break
         fi
@@ -358,7 +368,7 @@ while true; do
     # VPN mode: check connection health
     CURRENT_STATUS=$(expressvpnctl status 2>&1 || true)
 
-    if echo "$CURRENT_STATUS" | grep -qi "Connected"; then
+    if echo "$CURRENT_STATUS" | grep -qi "Connected to"; then
         if [ "$VPN_WAS_DOWN" = "true" ]; then
             # VPN just recovered
             VPN_WAS_DOWN=false
@@ -382,7 +392,7 @@ while true; do
         RECONN_WAIT=0
         RECONN_OK=false
         while [ $RECONN_WAIT -lt 30 ]; do
-            if expressvpnctl status 2>&1 | grep -qi "Connected"; then
+            if expressvpnctl status 2>&1 | grep -qi "Connected to"; then
                 RECONN_OK=true
                 break
             fi

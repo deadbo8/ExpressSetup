@@ -53,5 +53,5 @@ ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # Health check: verify VPN connected (vpn mode) OR direct mode is active
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
-    CMD (expressvpnctl status | grep -qi "Connected") || \
+    CMD (expressvpnctl status | grep -qi "Connected to") || \
         ([ -f /tmp/current_mode ] && grep -q "direct" /tmp/current_mode) || exit 1
