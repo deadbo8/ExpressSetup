@@ -328,6 +328,16 @@ punch_hole_loop() {
             while iptables -D INPUT -p tcp --dport 3000 -j ACCEPT 2>/dev/null; do :; done
             iptables -I INPUT 2 -p tcp --dport 3000 -j ACCEPT
         fi
+        
+        # Bypass ExpressVPN's forced DNS block (which blocks port 53 on tun0)
+        # We only allow it out of tun0, so if the VPN drops, it won't leak via eth0.
+        if ! iptables -S OUTPUT | head -n 4 | grep -q "dport 53 -j ACCEPT"; then
+            while iptables -D OUTPUT -o tun0 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done
+            while iptables -D OUTPUT -o tun0 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done
+            iptables -I OUTPUT 1 -o tun0 -p udp --dport 53 -j ACCEPT
+            iptables -I OUTPUT 2 -o tun0 -p tcp --dport 53 -j ACCEPT
+        fi
+        
         sleep 5
     done
 }
