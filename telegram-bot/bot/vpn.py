@@ -63,6 +63,10 @@ async def get_status() -> str:
 async def connect(location: str = "smart") -> str:
     """Connect to the given location alias (default: smart)."""
     try:
+        # Explicitly disconnect first to prevent the daemon from bugging out
+        # when switching locations while already connected.
+        await _exec(["expressvpn", "disconnect"])
+        
         rc, out, err = await _exec(["expressvpn", "connect", location])
         if rc != 0:
             if "timed out" in err.lower() or "timed out" in out.lower():

@@ -22,6 +22,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libnl-route-3-200 \
     && rm -rf /var/lib/apt/lists/*
 
+# ExpressVPN daemon requires iptables-legacy. Ubuntu 22.04 defaults to nftables.
+# Mixing them causes severe VPN drops and log spam.
+RUN update-alternatives --set iptables /usr/sbin/iptables-legacy \
+    && update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
+
 # Copy the pre-downloaded ExpressVPN .run installer from the build context
 COPY expressvpn_arm64.run /tmp/expressvpn.run
 
