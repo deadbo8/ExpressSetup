@@ -340,6 +340,7 @@ punch_hole_loop &
 log_step "Entering health monitoring loop (checking every 60s)..."
 
 VPN_WAS_DOWN=false
+FAIL_COUNT=0
 
 while true; do
     sleep 60 &
@@ -402,12 +403,21 @@ while true; do
             log_info "New public IP: $NEW_IP"
 
             VPN_WAS_DOWN=false
+            FAIL_COUNT=0
             send_telegram "✅ *VPN Reconnected* to \`${TARGET_SERVER}\`
 • Reconnected after: ${RECONN_WAIT}s
 • Public IP: \`${NEW_IP}\`
 • Kill switch: re-applied"
         else
-            log_error "Reconnection failed. Kill switch remains active. Will retry in next cycle."
+            FAIL_COUNT=$((FAIL_COUNT + 1))
+            log_error "Reconnection failed. Kill switch remains active. Will retry in next cycle. (Failures: $FAIL_COUNT)"
+            
+            if [ $FAIL_COUNT -ge 3 ]; then
+                log_error "Daemon appears persistently hung. Restarting container..."
+                send_telegram "🔄 *Restarting VPN Gateway* due to hung daemon..."
+                exit 1
+            fi
+            
             send_telegram "❌ *VPN Reconnection Failed!* Kill switch still active — retrying in 60s..."
         fi
     fi
