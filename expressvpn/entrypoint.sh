@@ -79,11 +79,6 @@ apply_vpn_mode() {
     # NAT through VPN
     iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE
 
-    # The gateway itself needs unrestricted INPUT/OUTPUT to allow the daemon to reconnect
-    # to the ExpressVPN API when the tunnel drops, and to allow hosted services to respond.
-    iptables -I INPUT 1 -j ACCEPT 2>/dev/null || true
-    iptables -I OUTPUT 1 -j ACCEPT 2>/dev/null || true
-
     # Neuter ExpressVPN's internal block sub-chain to bypass Network Lock 
     # without triggering the daemon's anti-tamper deadlock loop.
     iptables -I evpn.100.blockAll 1 -j ACCEPT 2>/dev/null || true
@@ -317,18 +312,21 @@ echo ""
 # ExpressVPN only monitors its own evpn.* chains, so inserting at INPUT 1 is safe.
 punch_hole_loop() {
     while true; do
-        # ExpressVPN aggressively pushes evpn.INPUT and evpn.OUTPUT to the top of the chains.
-        # This breaks AdGuard DNS (OUTPUT) and WireGuard incoming (INPUT).
-        # We ensure an unconditional ACCEPT stays above ExpressVPN's hooks for the local container.
+        # ExpressVPN's daemon will deadlock/crash if we constantly fight it for Index 1
+        # in the main INPUT/OUTPUT chains. Instead, we surgically inject an unconditional
+        # ACCEPT at the top of its *own* sub-chains (evpn.INPUT and evpn.OUTPUT).
+        # This completely bypasses its local firewall blocks without triggering anti-tamper.
         
-        if ! iptables -S INPUT | head -n 1 | grep -q "^-A INPUT -j ACCEPT"; then
-            while iptables -D INPUT -j ACCEPT 2>/dev/null; do :; done
-            iptables -I INPUT 1 -j ACCEPT
+        if iptables -S evpn.INPUT >/dev/null 2>&1; then
+            if ! iptables -S evpn.INPUT | head -n 2 | grep -q "^\-A evpn.INPUT -j ACCEPT"; then
+                iptables -I evpn.INPUT 1 -j ACCEPT 2>/dev/null || true
+            fi
         fi
 
-        if ! iptables -S OUTPUT | head -n 1 | grep -q "^-A OUTPUT -j ACCEPT"; then
-            while iptables -D OUTPUT -j ACCEPT 2>/dev/null; do :; done
-            iptables -I OUTPUT 1 -j ACCEPT
+        if iptables -S evpn.OUTPUT >/dev/null 2>&1; then
+            if ! iptables -S evpn.OUTPUT | head -n 2 | grep -q "^\-A evpn.OUTPUT -j ACCEPT"; then
+                iptables -I evpn.OUTPUT 1 -j ACCEPT 2>/dev/null || true
+            fi
         fi
 
         sleep 5
