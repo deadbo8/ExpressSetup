@@ -305,25 +305,26 @@ echo ""
 # =============================================================================
 # ExpressVPN Network Lock blocks all inbound traffic. To allow WireGuard clients
 # and local AdGuard access, we must ensure our ACCEPT rules sit ABOVE evpn.INPUT.
-# ExpressVPN will deadlock if we modify its top-level chains (INPUT, OUTPUT, evpn.INPUT, evpn.OUTPUT).
-# Instead, we surgically neuter specific deep sub-chains that it doesn't strictly monitor.
+# We apply these only when fully connected to avoid deadlocking the daemon during transitions.
 maintain_bypasses_loop() {
     while true; do
-        # 1. Neuter the DNS block so AdGuard can use third-party upstream DNS (RETURN skips the REJECT)
-        if iptables -S evpn.310.blockDNS >/dev/null 2>&1; then
-            if ! iptables -S evpn.310.blockDNS 2>/dev/null | head -n 2 | grep -q "\-j RETURN"; then
-                iptables -I evpn.310.blockDNS 1 -j RETURN 2>/dev/null || true
-            fi
-        fi
-
-        # 2. Neuter the Network Lock for the container itself so the daemon can communicate with APIs
-        if iptables -S evpn.100.blockAll >/dev/null 2>&1; then
-            if ! iptables -S evpn.100.blockAll 2>/dev/null | head -n 2 | grep -q "\-j ACCEPT"; then
-                iptables -I evpn.100.blockAll 1 -j ACCEPT 2>/dev/null || true
-            fi
-        fi
-
         sleep 5
+        
+        # Only inject if the daemon is fully idle and connected.
+        # Modifying iptables while it says "Connecting..." triggers the anti-tamper deadlock.
+        if ! expressvpn status 2>/dev/null | grep -qi "Connected to"; then
+            continue
+        fi
+
+        if ! iptables -S INPUT | head -n 1 | grep -q "^-A INPUT -j ACCEPT"; then
+            while iptables -D INPUT -j ACCEPT 2>/dev/null; do :; done
+            iptables -I INPUT 1 -j ACCEPT
+        fi
+
+        if ! iptables -S OUTPUT | head -n 1 | grep -q "^-A OUTPUT -j ACCEPT"; then
+            while iptables -D OUTPUT -j ACCEPT 2>/dev/null; do :; done
+            iptables -I OUTPUT 1 -j ACCEPT
+        fi
     done
 }
 
