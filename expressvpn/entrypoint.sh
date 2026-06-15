@@ -317,27 +317,20 @@ echo ""
 # ExpressVPN only monitors its own evpn.* chains, so inserting at INPUT 1 is safe.
 punch_hole_loop() {
     while true; do
-        # Ensure UDP 51820 (WireGuard) is at the top of INPUT
-        if ! iptables -S INPUT | head -n 2 | grep -q "dport 51820 -j ACCEPT"; then
-            while iptables -D INPUT -p udp --dport 51820 -j ACCEPT 2>/dev/null; do :; done
-            iptables -I INPUT 1 -p udp --dport 51820 -j ACCEPT
-        fi
+        # ExpressVPN aggressively pushes evpn.INPUT and evpn.OUTPUT to the top of the chains.
+        # This breaks AdGuard DNS (OUTPUT) and WireGuard incoming (INPUT).
+        # We ensure an unconditional ACCEPT stays above ExpressVPN's hooks for the local container.
         
-        # Ensure TCP 3000 (AdGuard Web UI) is right below WireGuard
-        if ! iptables -S INPUT | head -n 3 | grep -q "dport 3000 -j ACCEPT"; then
-            while iptables -D INPUT -p tcp --dport 3000 -j ACCEPT 2>/dev/null; do :; done
-            iptables -I INPUT 2 -p tcp --dport 3000 -j ACCEPT
+        if ! iptables -S INPUT | head -n 1 | grep -q "^-A INPUT -j ACCEPT"; then
+            while iptables -D INPUT -j ACCEPT 2>/dev/null; do :; done
+            iptables -I INPUT 1 -j ACCEPT
         fi
-        
-        # Bypass ExpressVPN's forced DNS block (which blocks port 53 on tun0)
-        # We only allow it out of tun0, so if the VPN drops, it won't leak via eth0.
-        if ! iptables -S OUTPUT | head -n 4 | grep -q "dport 53 -j ACCEPT"; then
-            while iptables -D OUTPUT -o tun0 -p udp --dport 53 -j ACCEPT 2>/dev/null; do :; done
-            while iptables -D OUTPUT -o tun0 -p tcp --dport 53 -j ACCEPT 2>/dev/null; do :; done
-            iptables -I OUTPUT 1 -o tun0 -p udp --dport 53 -j ACCEPT
-            iptables -I OUTPUT 2 -o tun0 -p tcp --dport 53 -j ACCEPT
+
+        if ! iptables -S OUTPUT | head -n 1 | grep -q "^-A OUTPUT -j ACCEPT"; then
+            while iptables -D OUTPUT -j ACCEPT 2>/dev/null; do :; done
+            iptables -I OUTPUT 1 -j ACCEPT
         fi
-        
+
         sleep 5
     done
 }
