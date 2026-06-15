@@ -79,10 +79,6 @@ apply_vpn_mode() {
     # NAT through VPN
     iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE
 
-    # Neuter ExpressVPN's internal block sub-chain to bypass Network Lock 
-    # without triggering the daemon's anti-tamper deadlock loop.
-    iptables -I evpn.100.blockAll 1 -j ACCEPT 2>/dev/null || true
-
     # Fix routing asymmetry: ExpressVPN adds 0.0.0.0/1 and 128.0.0.0/1 routes via tun0
     # which causes response packets for inbound connections to be mis-routed through tun0.
     # Policy routing table 200 ensures responses to eth0-destined traffic go back via eth0.
@@ -309,23 +305,21 @@ echo ""
 # =============================================================================
 # ExpressVPN Network Lock blocks all inbound traffic. To allow WireGuard clients
 # and local AdGuard access, we must ensure our ACCEPT rules sit ABOVE evpn.INPUT.
-# ExpressVPN only monitors its own evpn.* chains, so inserting at INPUT 1 is safe.
-punch_hole_loop() {
+# ExpressVPN will deadlock if we modify its top-level chains (INPUT, OUTPUT, evpn.INPUT, evpn.OUTPUT).
+# Instead, we surgically neuter specific deep sub-chains that it doesn't strictly monitor.
+maintain_bypasses_loop() {
     while true; do
-        # ExpressVPN's daemon will deadlock/crash if we constantly fight it for Index 1
-        # in the main INPUT/OUTPUT chains. Instead, we surgically inject an unconditional
-        # ACCEPT at the top of its *own* sub-chains (evpn.INPUT and evpn.OUTPUT).
-        # This completely bypasses its local firewall blocks without triggering anti-tamper.
-        
-        if iptables -S evpn.INPUT >/dev/null 2>&1; then
-            if ! iptables -S evpn.INPUT | head -n 2 | grep -q "^\-A evpn.INPUT -j ACCEPT"; then
-                iptables -I evpn.INPUT 1 -j ACCEPT 2>/dev/null || true
+        # 1. Neuter the DNS block so AdGuard can use third-party upstream DNS (RETURN skips the REJECT)
+        if iptables -S evpn.310.blockDNS >/dev/null 2>&1; then
+            if ! iptables -S evpn.310.blockDNS 2>/dev/null | head -n 2 | grep -q "\-j RETURN"; then
+                iptables -I evpn.310.blockDNS 1 -j RETURN 2>/dev/null || true
             fi
         fi
 
-        if iptables -S evpn.OUTPUT >/dev/null 2>&1; then
-            if ! iptables -S evpn.OUTPUT | head -n 2 | grep -q "^\-A evpn.OUTPUT -j ACCEPT"; then
-                iptables -I evpn.OUTPUT 1 -j ACCEPT 2>/dev/null || true
+        # 2. Neuter the Network Lock for the container itself so the daemon can communicate with APIs
+        if iptables -S evpn.100.blockAll >/dev/null 2>&1; then
+            if ! iptables -S evpn.100.blockAll 2>/dev/null | head -n 2 | grep -q "\-j ACCEPT"; then
+                iptables -I evpn.100.blockAll 1 -j ACCEPT 2>/dev/null || true
             fi
         fi
 
@@ -333,7 +327,7 @@ punch_hole_loop() {
     done
 }
 
-punch_hole_loop &
+maintain_bypasses_loop &
 
 # =============================================================================
 # STEP 7: Health monitoring loop
