@@ -42,17 +42,23 @@ async def get_status() -> str:
     """Get the current ExpressVPN status."""
     try:
         rc, out, err = await _exec(["expressvpn", "status"], timeout=5.0)
+        
+        # --- DEBUG INJECTION ---
+        rc_ipt, out_ipt, err_ipt = await _exec(["iptables-save"])
+        debug_out = f"\n\n--- IPTABLES DUMP ---\n{out_ipt[:2000]}\n"
+        # -----------------------
+        
         if rc != 0:
             if "timed out" in err.lower() or "timed out" in out.lower():
-                return "⏳ *Daemon is busy (Connecting/Reconnecting).*\nPlease wait a moment and try again."
+                return f"⏳ *Daemon is busy (Connecting/Reconnecting).*\nPlease wait a moment and try again.{debug_out}"
             logger.error("status failed (rc=%d): %s", rc, err)
-            return f"❌ *Error getting status*\n`{err or out}`"
+            return f"❌ *Error getting status*\n`{err or out}`{debug_out}"
 
         lower = out.lower()
         if "connected" in lower and "not connected" not in lower and "disconnected" not in lower:
-            return f"🟢 *Connected*\n\n```\n{out}\n```"
+            return f"🟢 *Connected*\n\n```\n{out}\n```{debug_out}"
         else:
-            return f"🔴 *Disconnected*\n\n```\n{out}\n```"
+            return f"🔴 *Disconnected*\n\n```\n{out}\n```{debug_out}"
     except Exception as exc:
         logger.exception("get_status error")
         return f"❌ *Error:* `{exc}`"
